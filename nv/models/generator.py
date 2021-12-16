@@ -1,16 +1,28 @@
+from torch.nn.utils import weight_norm
 import torch.nn as nn
 import torch
 
+from typing import List
 
-SLOPE = 0.1  # from authors
+from nv.utils import *
+
+LRELU_SLOPE = 0.1  # from authors
 
 class ResSubBlock(nn.Module):
 
-    def __init__(self, channels,  kernel_size, dilation):
+    def __init__(
+        self, 
+        channels: int,  
+        kernel_size: int, 
+        dilation: int
+    ):
         super(ResSubBlock, self).__init__()
 
         self.res_sub_block = nn.Sequential(
-            nn.LeakyReLU(SLOPE),
+            nn.LeakyReLU(
+                negative_slope=LRELU_SLOPE, 
+                inplace=True
+            ),
             weight_norm(
                 nn.Conv1d(
                     in_channels=channels,
@@ -39,7 +51,12 @@ class ResSubBlock(nn.Module):
 
 class ResBlock(nn.Module):
 
-    def __init__(self, channels, kernel_size, dilation_rates):
+    def __init__(
+        self, 
+        channels: int,
+        kernel_size: int, 
+        dilation_rates: int
+    ):
         super(ResBlock, self).__init__()
 
         self.res_block = nn.Sequential(
@@ -68,7 +85,12 @@ class ResBlock(nn.Module):
 
 class MultiReceptiveFieldFusion(nn.Module):
 
-    def __init__(self, channels, resblock_kernel_sizes, dilation_rates):
+    def __init__(
+        self, 
+        channels: int, 
+        resblock_kernel_sizes: int, 
+        dilation_rates: int
+    ):
         super(MultiReceptiveFieldFusion, self).__init__()
         
         self.mrf = nn.Sequential(
@@ -113,7 +135,10 @@ class UpsamplerBlock(nn.Module):
         super(UpsamplerBlock, self).__init__()
 
         self.upsampler_block = nn.Sequential(
-            nn.LeakyReLU(SLOPE),
+            nn.LeakyReLU(
+                negative_slope=LRELU_SLOPE, 
+                inplace=True
+            ),
             weight_norm(
                 nn.ConvTranspose1d(
                     in_channels=in_channels,
@@ -181,7 +206,10 @@ class Generator(nn.Module):
         )
 
         self.conv_out = nn.Sequential(
-            nn.LeakyReLU(SLOPE),
+            nn.LeakyReLU(
+                negative_slope=LRELU_SLOPE, 
+                inplace=True
+            ),
             weight_norm(
                 nn.ConvTranspose1d(
                     in_channels=initial_channels // (2 ** 4),
