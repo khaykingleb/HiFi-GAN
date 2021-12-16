@@ -54,3 +54,19 @@ def get_grad_norm(model, norm_type=2):
     )
 
     return total_norm.item()
+
+
+def get_padding(kernel_size, dilation=1):
+    """
+    From https://github.com/jik876/hifi-gan
+    """
+    return int((kernel_size * dilation - dilation) / 2)
+
+
+def init_weights(m, mean=0.0, std=0.01):
+    """
+    From https://github.com/jik876/hifi-gan
+    """
+    classname = m.__class__.__name__
+    if classname.find("Conv") != -1:
+        m.weight.data.normal_(mean, std)
