@@ -158,10 +158,10 @@ class UpsamplerBlock(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Params:
-            x: torch tensor with shape of (batch_size, n_mels, seq_len)
+            x: torch tensor with shape of (batch_size, n_mels, seq_len_old)
 
         Returns:
-            out: torch tensor with shape of (batch_size, n_mels // 2, seq_len * 8)
+            out: torch tensor with shape of (batch_size, n_mels // 2, seq_len_new)
         """
         out = self.upsampler_block(x)
 
@@ -226,10 +226,10 @@ class Generator(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Params:
-            x: torch tensor with shape of (batch_size, n_mels, seq_len)
+            x: torch tensor with shape of (batch_size, n_mels, seq_len_old)
         
         Returns: 
-            out: torch tensor with shape of 
+            out: torch tensor with shape of (batch_size, 1, seq_len_new)
         """
         out = self.conv_in(x)
         out = self.upsampler(out)
