@@ -1,0 +1,4 @@
+torchaudio==0.10.0+cu111
+torch==1.10.0+cu111
+deep_phonemizer
+wandb
