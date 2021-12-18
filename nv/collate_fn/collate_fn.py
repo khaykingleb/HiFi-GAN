@@ -22,6 +22,8 @@ class Batch:
             self.melspec_loss.to(device)
         )
         return batch
+
+        
 class LJSpeechCollator:
 
     def __call__(self, instances: List[Tuple]) -> Dict:
