@@ -1,5 +1,5 @@
 {
-    "use_wandb": false,
+    "use_wandb": true,
     "wandb_project_name": "tts_vocoder",
 
     "path_to_data": "./data",
