@@ -75,21 +75,3 @@ class DiscriminatorLoss(nn.Module):
             )
         
         return discriminator_loss
-
-
-class DiscriminatorLoss(nn.Module):
-
-    def forward(
-        self, 
-        outs_real: List[torch.Tensor], 
-        outs_fake: List[torch.Tensor]
-    ) -> torch.Tensor:
-    
-        discriminator_loss = 0
-
-        for out_real, out_fake in zip(outs_real, outs_fake): 
-            discriminator_loss += torch.mean(
-                (out_real - 1) ** 2 + out_fake ** 2
-            )
-        
-        return discriminator_loss

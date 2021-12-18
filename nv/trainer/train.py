@@ -1,6 +1,6 @@
 import wandb
 
-from nv.trainer import *
+from nv.trainer.prepare_batch import *
 from nv.losses import *
 from nv.utils import *
 
