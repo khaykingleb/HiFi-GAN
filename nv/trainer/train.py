@@ -73,7 +73,7 @@ def train_epoch(
 
         if config.use_wandb:             
             wandb.log({
-                "Train v Loss on Batch": loss_discr.item(),
+                "Train Discriminator Loss on Batch": loss_discr.item(),
                 "Discriminator Gradient Norm": get_grad_norm(generator),
                 "Discriminator Learning Rate": optimizer_generator.param_groups[0]['lr']
             })
