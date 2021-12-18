@@ -1,37 +1,40 @@
-from torch.nn.utils.rnn import pad_sequence
-import torch.nn as nn
+import random
+import torch.nn.functional as F
 import torch
+
+from nv.spectrogram import MelSpectrogram
+from nv.collate_fn import Batch
 
 
 def prepare_batch(
-    batch, 
-    melspectrogramer, 
-    aligner, 
-    config,
-    device
-):
+    batch: Batch, 
+    melspectrogramer: MelSpectrogram, 
+    melspectrogramer_loss: MelSpectrogram,
+    device: torch.device,
+    for_training: bool, 
+    segment_size: int = 8192
+):  
+    if for_training: 
+        waveform_segment = []
+
+        for idx in range(batch.waveform.shape[0]):
+            waveform_length = batch.waveform_length[idx]
+            waveform = batch.waveform[idx][:waveform_length]
+
+            if waveform_length >= segment_size:
+                difference = waveform_length - segment_size
+                waveform_start = random.randint(0, difference - 1)
+                waveform_segment.append(
+                    waveform[waveform_start:waveform_start + segment_size]
+                )
+            else:
+                waveform_segment.append(
+                    F.pad(waveform, (0, segment_size - waveform_length))
+                )
+        
+        batch.waveform = torch.vstack(waveform_segment)
+    
     batch.melspec = melspectrogramer(batch.waveform.to(device))
-
-    if not config["main"]["use_alignments_folder"]:
-
-        durations = aligner(
-            batch.waveform.to(device), 
-            batch.waveform_length.to(device), 
-            batch.transcript
-        )
-
-        durations_melspec = []
-        for index in range(batch.waveform.shape[0]):
-            durations_wave = durations[index]
-            durations_normalized = durations_wave / durations_wave.sum()
-
-            melspec = melspectrogramer(
-                batch.waveform[index][:batch.waveform_length[index]].to(device)
-            )
-            durations_melspec.append(
-                torch.round(durations_normalized * melspec.shape[1]).float()
-            )
-            
-        batch.durations = pad_sequence(durations_melspec).permute(1, 0)
-
+    batch.melspec_loss = melspectrogramer_loss(batch.waveform.to(device))
+    
     return batch.to(device)

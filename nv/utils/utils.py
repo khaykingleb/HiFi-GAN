@@ -4,8 +4,17 @@ import numpy as np
 import torch
 
 
+class AttrDict(dict):
+    """
+    From https://github.com/jik876/hifi-gan
+    """
+    def __init__(self, *args, **kwargs):
+        super(AttrDict, self).__init__(*args, **kwargs)
+        self.__dict__ = self
+
+
 def fix_seed(config) -> None:
-    seed = config["main"]["seed"]
+    seed = config.seed
     random.seed(seed)
     os.environ['PYTHONHASHSEED'] = str(seed)
     np.random.seed(seed)
