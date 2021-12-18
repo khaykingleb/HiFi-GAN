@@ -17,6 +17,7 @@ class MelSpectrogram(nn.Module):
     def __init__(self, config, for_loss=False):
         super(MelSpectrogram, self).__init__()
 
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
         self.f_max = config.f_max if for_loss is False else config.f_max_loss
         self.pad_size = (config.n_fft - config.hop_length) // 2
         self.config = config
@@ -37,7 +38,7 @@ class MelSpectrogram(nn.Module):
             self.config.n_fft, 
             hop_length=self.config.hop_length, 
             win_length=self.config.win_length, 
-            window=torch.hann_window(self.config.win_length),
+            window=torch.hann_window(self.config.win_length).to(self.device),
             center=self.config.center, 
             pad_mode='reflect', 
             normalized=False, 
@@ -46,7 +47,9 @@ class MelSpectrogram(nn.Module):
 
         spec_2 = torch.sqrt(spec_2.pow(2).sum(-1) + (1e-9))
         
-        melspec = torch.matmul(torch.from_numpy(spec_1).float(), spec_2)
+        melspec = torch.matmul(
+            torch.from_numpy(spec_1).float().to(self.device), spec_2
+        )
         melspec = spectral_normalize_torch(melspec)
 
         return melspec

@@ -42,14 +42,14 @@ def main(config):
         train_dataset, 
         collate_fn=LJSpeechCollator(),
         batch_size=config.batch_size, 
-        #num_workers=config.num_workers
+        num_workers=config.num_workers
     )
 
     val_dataloader = DataLoader(
         val_dataset,
         collate_fn=LJSpeechCollator(),
         batch_size=config.batch_size, 
-        #num_workers=config.num_workers
+        num_workers=config.num_workers
     )
 
     melspectrogramer = MelSpectrogram(config, for_loss=False).to(device)
@@ -103,7 +103,7 @@ def main(config):
         config, train_dataloader, val_dataloader,
         generator, optimizer_generator, scheduler_generator, 
         discriminator, optimizer_discriminator, scheduler_discriminator, 
-        melspectrogramer, melspectrogramer_for_loss
+        melspectrogramer, melspectrogramer_for_loss, device
     )
 
 
