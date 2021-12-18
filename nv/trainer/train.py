@@ -122,6 +122,8 @@ def validate_epoch(
                     "Validation Melspectrogram Loss on Batch": loss_mel.item()
                 })
 
+            melspec_fake = melspectrogramer(wav_fake)
+
         if config.use_wandb:
             random_idx = np.random.randint(0, wav_real.shape[0])
             wandb.log({
