@@ -127,24 +127,24 @@ def validate_epoch(
         if config.use_wandb:
             random_idx = np.random.randint(0, wav_real.shape[0])
             wandb.log({
-                "Faked Spectrogram": wandb.Image(
-                    melspec_fake[random_idx].detach().cpu().numpy(), 
+                "Real Spectrogram": wandb.Image(
+                    melspec_real[random_idx],
                     caption=batch.transcript[random_idx].capitalize()
                 ),
-                "True Spectrogram": wandb.Image(
-                    melspec_real[random_idx].detach().cpu().numpy(),
+                "Faked Spectrogram": wandb.Image(
+                    melspec_fake[random_idx], 
+                    caption=batch.transcript[random_idx].capitalize()
+                ),
+                "Real Audio": wandb.Audio(
+                    wav_real[random_idx],
+                    sample_rate=config.sr, 
                     caption=batch.transcript[random_idx].capitalize()
                 ),
                 "Faked Audio": wandb.Audio(
-                    wav_fake[random_idx].detach().cpu().numpy(), 
+                    wav_fake[random_idx], 
                     sample_rate=config.sr, 
                     caption=batch.transcript[random_idx].capitalize()
                 ),
-                "True Audio": wandb.Audio(
-                    wav_real[random_idx].detach().cpu().numpy(),
-                    sample_rate=config.sr, 
-                    caption=batch.transcript[random_idx].capitalize()
-                )
             })
 
     return val_melspec_loss / len(val_dataloader)
