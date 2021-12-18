@@ -2,6 +2,8 @@ from torch.nn.utils import weight_norm, spectral_norm
 import torch.nn as nn
 import torch
 
+import torch.nn.functional as F
+
 from typing import *
 
 from nv.utils import get_padding
@@ -37,10 +39,7 @@ class PeriodSubDiscriminator(nn.Module):
                             padding=(get_padding(5, 1), 0)
                         )
                     ),
-                    nn.LeakyReLU(
-                        negative_slope=LRELU_SLOPE, 
-                        inplace=True
-                    )
+                    nn.LeakyReLU(LRELU_SLOPE)
                 ) 
                 for ell in range(4)
             ],
@@ -54,10 +53,7 @@ class PeriodSubDiscriminator(nn.Module):
                         padding=(2, 0)
                     )
                 ),
-                nn.LeakyReLU(
-                    negative_slope=LRELU_SLOPE, 
-                    inplace=True
-                )
+                nn.LeakyReLU(LRELU_SLOPE)
             ),
             nn.Sequential(
                 weight_norm(
@@ -169,10 +165,7 @@ class ScaleSubDiscriminator(nn.Module):
                             padding=padding[ell]
                         )
                     ),
-                    nn.LeakyReLU(
-                        negative_slope=LRELU_SLOPE, 
-                        inplace=True
-                    )
+                    nn.LeakyReLU(LRELU_SLOPE)
                 ) 
                 for ell in range(7)
             ], 

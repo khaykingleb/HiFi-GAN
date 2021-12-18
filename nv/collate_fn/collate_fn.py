@@ -17,13 +17,11 @@ class Batch:
         batch = Batch(
             self.transcript,
             self.waveform.to(device),
-            self.waveform_length.to(device),
+            self.waveform_length,
             self.melspec.to(device),
             self.melspec_loss.to(device)
         )
         return batch
-
-
 class LJSpeechCollator:
 
     def __call__(self, instances: List[Tuple]) -> Dict:

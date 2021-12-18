@@ -9,7 +9,7 @@ from nv.collate_fn import Batch
 def prepare_batch(
     batch: Batch, 
     melspectrogramer: MelSpectrogram, 
-    melspectrogramer_loss: MelSpectrogram,
+    melspectrogramer_for_loss: MelSpectrogram,
     device: torch.device,
     for_training: bool, 
     segment_size: int = 8192
@@ -35,6 +35,6 @@ def prepare_batch(
         batch.waveform = torch.vstack(waveform_segment)
     
     batch.melspec = melspectrogramer(batch.waveform.to(device))
-    batch.melspec_loss = melspectrogramer_loss(batch.waveform.to(device))
+    batch.melspec_loss = melspectrogramer_for_loss(batch.waveform.to(device))
     
     return batch.to(device)

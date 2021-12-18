@@ -21,10 +21,7 @@ class ResSubBlock(nn.Module):
         super(ResSubBlock, self).__init__()
 
         self.res_sub_block = nn.Sequential(
-            nn.LeakyReLU(
-                negative_slope=LRELU_SLOPE, 
-                inplace=True
-            ),
+            nn.LeakyReLU(LRELU_SLOPE),
             weight_norm(
                 nn.Conv1d(
                     in_channels=channels,
@@ -137,10 +134,7 @@ class UpsamplerBlock(nn.Module):
         super(UpsamplerBlock, self).__init__()
 
         self.upsampler_block = nn.Sequential(
-            nn.LeakyReLU(
-                negative_slope=LRELU_SLOPE, 
-                inplace=True
-            ),
+            nn.LeakyReLU(LRELU_SLOPE),
             weight_norm(
                 nn.ConvTranspose1d(
                     in_channels=in_channels,
@@ -202,10 +196,7 @@ class HiFiGenerator(nn.Module):
         )
 
         self.conv_out = nn.Sequential(
-            nn.LeakyReLU(
-                negative_slope=LRELU_SLOPE, 
-                inplace=True
-            ),
+            nn.LeakyReLU(LRELU_SLOPE),
             weight_norm(
                 nn.ConvTranspose1d(
                     in_channels=config.initial_channels // (2 ** len(config.upsample_kernel_sizes)),

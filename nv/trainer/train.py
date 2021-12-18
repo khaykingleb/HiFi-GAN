@@ -1,170 +1,204 @@
-from tqdm.notebook import tqdm
 import wandb
 
-import torch.nn as nn
-import torch
-
-import numpy as np
-
-from tts.trainer.prolong_melspecs import prolong_melspecs
-from tts.trainer.prepare_batch import prepare_batch
-from tts.utils import get_grad_norm
+from nv.trainer import *
+from nv.losses import *
+from nv.utils import *
 
 
 def train_epoch(
     config, 
-    model, 
-    optimizer,
-    criterion,
-    aligner,
-    melspectrogramer,
     train_dataloader,
+    generator, 
+    optimizer_generator, 
+    scheduler_generator, 
+    discriminator, 
+    optimizer_discriminator, 
+    scheduler_discriminator, 
+    melspectrogramer, 
+    melspectrogramer_for_loss,
     device
 ):
-    model.train()
-    train_loss = 0
-    
+    generator.train()
+    discriminator.train()
+
+    adversarial_loss = AdversarialLoss()
+    feature_loss = FeatureMatchingLoss()
+    melspec_loss = MelSpectrogramLoss()
+
+    discriminator_loss = DiscriminatorLoss()
+
+    train_melspec_loss = 0
     for batch in train_dataloader:
-        batch = prepare_batch(batch, melspectrogramer, aligner, config, device)
-        if config["main"]["use_alignments_folder"] and \
-            batch.tokens.shape[1] != batch.durations.shape[1]: 
-            continue
+        batch = prepare_batch(
+            batch, melspectrogramer, melspectrogramer_for_loss, 
+            device, for_training=True
+        )
+        wav_real, melspec_real = batch.waveform, batch.melspec
 
-        durations_pred, melspec_pred = model(batch.tokens, batch.durations)
-        melspec_pred, batch.melspec = prolong_melspecs(
-            melspec_pred, batch.melspec, config, device
-        )    
+        optimizer_generator.zero_grad()
 
-        loss = criterion(durations_pred, batch.durations, melspec_pred, batch.melspec)
-        train_loss += loss.item()
+        wav_fake = generator(melspec_real)
+        melspec_fake = melspectrogramer_for_loss(wav_fake)
+        out_discr = discriminator(wav_real, wav_fake)
 
-        loss.backward()
+        loss_adv = adversarial_loss(out_discr["outs_fake"])
+        loss_fm = feature_loss(out_discr["feature_maps_real"], out_discr["feature_maps_fake"])
+        loss_mel = melspec_loss(melspec_real, melspec_fake)
+        train_melspec_loss += loss_mel.item()
 
-        nn.utils.clip_grad_norm_(model.parameters(), config["trainer"]["grad_norm_clip"])
+        loss_gen = loss_adv + 2 * loss_fm + 45 * loss_mel
+        loss_gen.backward()
+        nn.utils.clip_grad_norm_(generator.parameters(), config.grad_norm_clip)
 
-        if config["logger"]["use_wandb"]:             
+        if config.use_wandb:             
             wandb.log({
-                "Train Loss on Batch": loss.item(),
-                "Gradient Norm": get_grad_norm(model),
-                "Learning Rate": optimizer.optimizer.param_groups[0]['lr']
+                "Train Adversarial Loss on Batch": loss_adv.item(),
+                "Train Feature Matching Loss on Batch": loss_fm.item(),
+                "Train Melspec Loss on Batch": loss_mel.item(),
+                "Train Generator Loss on Batch": loss_gen.item(),
+                "Generator Gradient Norm": get_grad_norm(generator),
+                "Generator Learning Rate": optimizer_generator.param_groups[0]['lr']
             })
+
+        optimizer_generator.step()
         
-        optimizer.step_and_update_lr()
-        optimizer.zero_grad()
-        
-    return train_loss / len(train_dataloader)  
+        optimizer_discriminator.zero_grad()
+
+        wav_fake = generator(melspec_real)
+        out_discr = discriminator(wav_real, wav_fake)
+
+        loss_discr = discriminator_loss(out_discr["outs_real"], out_discr["outs_fake"])
+        loss_discr.backward()
+        nn.utils.clip_grad_norm_(discriminator.parameters(), config.grad_norm_clip)
+
+        if config.use_wandb:             
+            wandb.log({
+                "Train v Loss on Batch": loss_discr.item(),
+                "Discriminator Gradient Norm": get_grad_norm(generator),
+                "Discriminator Learning Rate": optimizer_generator.param_groups[0]['lr']
+            })
+
+        optimizer_discriminator.step()
+
+    scheduler_generator.step()
+    scheduler_discriminator.step()
+
+    return train_melspec_loss / len(train_dataloader)
 
 
 def validate_epoch(
     config, 
-    model,
-    vocoder,
-    aligner,
-    melspectrogramer,
     val_dataloader,
+    generator, 
+    discriminator, 
+    melspectrogramer, 
+    melspectrogramer_for_loss, 
     device
-):
-    model.eval()
-    val_loss = 0
+): 
+    generator.eval()
+    discriminator.eval()
 
-    melspec_loss = nn.MSELoss()
+    melspec_loss = MelSpectrogramLoss()
 
+    torch.cuda.empty_cache()
+
+    val_melspec_loss = 0
     with torch.no_grad():
         for batch in val_dataloader:
-            batch = prepare_batch(batch, melspectrogramer, aligner, config, device)
-            if config["main"]["use_alignments_folder"] and \
-                batch.tokens.shape[1] != batch.durations.shape[1]: 
-                continue
+            batch = prepare_batch(
+                batch, melspectrogramer, melspectrogramer_for_loss, 
+                device, for_training=False
+            )
+            wav_real, melspec_real = batch.waveform, batch.melspec
 
-            durations_pred, melspec_pred = model.inference(batch.tokens)
-            melspec_pred, batch.melspec = prolong_melspecs(
-                melspec_pred, batch.melspec, config, device
-            )    
-            
-            loss = melspec_loss(melspec_pred, batch.melspec)
-            val_loss += loss.item()
+            wav_fake = generator(melspec_real)
+            melspec_fake = melspectrogramer_for_loss(wav_fake)
 
-            if config["logger"]["use_wandb"]:             
-                wandb.log({"Validation Loss on Batch": loss.item()})
+            loss_mel = melspec_loss(melspec_real, melspec_fake)
+            val_melspec_loss += loss_mel.item()
 
-        if config["logger"]["use_wandb"]:
-            random_idx = np.random.randint(0, batch.waveform.shape[0])
+            if config.use_wandb:
+                wandb.log({
+                    "Validation Melspectrogram Loss on Batch": loss_mel.item()
+                })
+
+        if config.use_wandb:
+            random_idx = np.random.randint(0, wav_real.shape[0])
             wandb.log({
-                "Predicted Spectrogram": wandb.Image(
-                    melspec_pred[random_idx, :, :].detach().cpu().numpy(), 
+                "Faked Spectrogram": wandb.Image(
+                    melspec_fake[random_idx].detach().cpu().numpy(), 
                     caption=batch.transcript[random_idx].capitalize()
                 ),
                 "True Spectrogram": wandb.Image(
-                    batch.melspec[random_idx, :, :].detach().cpu().numpy(),
+                    melspec_real[random_idx].detach().cpu().numpy(),
+                    caption=batch.transcript[random_idx].capitalize()
+                ),
+                "Faked Audio": wandb.Audio(
+                    wav_fake[random_idx].detach().cpu().numpy(), 
+                    sample_rate=config.sr, 
+                    caption=batch.transcript[random_idx].capitalize()
+                ),
+                "True Audio": wandb.Audio(
+                    wav_real[random_idx].detach().cpu().numpy(),
+                    sample_rate=config.sr, 
                     caption=batch.transcript[random_idx].capitalize()
                 )
             })
 
-            wav_pred = vocoder.inference(
-                melspec_pred[random_idx, :, :].unsqueeze(0)
-            ).squeeze()
-            wandb.log({
-                "Predicted Audio": wandb.Audio(
-                    wav_pred.detach().cpu().numpy(), 
-                    sample_rate=config["preprocessing"]["sr"], 
-                    caption=batch.transcript[random_idx].capitalize()
-                ),
-                "True Audio": wandb.Audio(
-                    batch.waveform[random_idx].detach().cpu().numpy(),
-                    sample_rate=config["preprocessing"]["sr"], 
-                    caption=batch.transcript[random_idx].capitalize()
-                )
-            })
-    
-    return val_loss / len(val_dataloader)
+    return val_melspec_loss / len(val_dataloader)
 
 
 def train(
     config, 
-    model, 
-    optimizer,
-    criterion,
-    vocoder,
-    aligner,
-    melspectrogramer,
-    train_dataloader,
+    train_dataloader, 
     val_dataloader,
+    generator, 
+    optimizer_generator, 
+    scheduler_generator, 
+    discriminator, 
+    optimizer_discriminator, 
+    scheduler_discriminator, 
+    melspectrogramer, 
+    melspectrogramer_for_loss,
     device
-):    
-    history_val_loss = []
+):  
+    history_val_melspec_loss = []
     epoch = 0
 
-    #for epoch in tqdm(range(config["trainer"]["num_epoch"])):
+    #for epoch in tqdm(range(config.num_epoch)):
     while True:
         epoch += 1
 
-        train_loss = train_epoch(
-            config, model, optimizer, criterion, aligner,
-            melspectrogramer, train_dataloader, device
+        train_melspec_loss = train_epoch(
+            config, train_dataloader,
+            generator, optimizer_generator, scheduler_generator, 
+            discriminator, optimizer_discriminator, scheduler_discriminator, 
+            melspectrogramer, melspectrogramer_for_loss, device
         )
 
-        val_loss = validate_epoch(
-            config, model, vocoder, aligner,
-            melspectrogramer, val_dataloader, device
+        val_melspec_loss = validate_epoch(
+            config, val_dataloader,
+            generator, discriminator, 
+            melspectrogramer, melspectrogramer_for_loss, device
         )
-        
-        history_val_loss.append(val_loss)
-         
-        if config["logger"]["use_wandb"]:             
+
+        history_val_melspec_loss.append(val_melspec_loss)
+
+        if config.use_wandb:             
             wandb.log({
                 "Epoch": epoch,
-                "Global Train Loss": train_loss,
-                "Global Validation Loss": val_loss
+                "Global Train Melspectrogram Loss": train_melspec_loss,
+                "Global Validation Melspectrogram Loss": val_melspec_loss
             })  
         
-        if val_loss <= min(history_val_loss):
-            arch = type(model).__name__
-            state = {
-                "arch": arch,
-                "epoch": epoch,
-                "state_dict": model.state_dict(),
-                "optimizer": optimizer.optimizer.state_dict(),
-                "config": config
-            }
-            best_path = config["pretrained_model"]["path_to_save"] + "/best.pt"
-            torch.save(state, best_path)
+        #if val_melspec_loss <= min(history_val_melspec_loss):
+        state = {
+            "generator": generator.state_dict(),
+            "generator_arch": type(generator).__name__,
+            "optimizer_generator": optimizer_generator.state_dict(),
+            "discriminator": discriminator.state_dict(),
+            "discriminator_arch": type(discriminator).__name__,
+            "optimizer_discriminator": optimizer_generator.state_dict(),
+            "config": config
+        }
+        torch.save(state, config.path_to_save + "/best.pt")
