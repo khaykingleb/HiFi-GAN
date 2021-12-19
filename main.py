@@ -88,12 +88,17 @@ def main(config):
         gamma=config.gamma
     ) 
 
-    #if config.load_model:
-    #    if config.verbose:
-    #        print("Downloading the pretrained generator.")
-    #    checkpoint = torch.load(config["pretrained_model"]["checkpoint_path"])
-    #    model.load_state_dict(checkpoint["state_dict"])
-    #    optimizer.optimizer.load_state_dict(checkpoint["optimizer"])  
+    if config.load_model:
+        if config.verbose:
+            print("Downloading the pretrained model.")
+
+        checkpoint = torch.load(config.checkpoint_path)
+
+        generator.load_state_dict(checkpoint["generator"])
+        optimizer_generator.load_state_dict(checkpoint["optimizer_generator"])
+
+        discriminator.load_state_dict(checkpoint["discriminator"])
+        optimizer_discriminator.load_state_dict(checkpoint["optimizer_discriminator"]) 
     
     if config.use_wandb:
         wandb.watch(generator)
