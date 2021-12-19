@@ -200,7 +200,7 @@ def train(
             "optimizer_generator": optimizer_generator.state_dict(),
             "discriminator": discriminator.state_dict(),
             "discriminator_arch": type(discriminator).__name__,
-            "optimizer_discriminator": optimizer_generator.state_dict(),
+            "optimizer_discriminator": optimizer_discriminator.state_dict(),
             "config": config
         }
         torch.save(state, config.path_to_save + "/best.pt")
