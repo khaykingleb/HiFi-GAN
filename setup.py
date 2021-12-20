@@ -2,7 +2,7 @@ from setuptools import find_packages, setup
 
 
 setup(
-    name="asr",
+    name="nv",
     version="1.0",
     author="khaykingleb",
     package_dir={"": "nv"},

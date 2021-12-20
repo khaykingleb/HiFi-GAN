@@ -131,7 +131,7 @@ def validate_epoch(
                     melspec_real[random_idx].detach().cpu(),
                     caption=batch.transcript[random_idx].capitalize()
                 ),
-                "Faked Spectrogram": wandb.Image(
+                "Fake Spectrogram": wandb.Image(
                     melspec_fake[random_idx].detach().cpu(), 
                     caption=batch.transcript[random_idx].capitalize()
                 ),
@@ -140,7 +140,7 @@ def validate_epoch(
                     sample_rate=config.sr, 
                     caption=batch.transcript[random_idx].capitalize()
                 ),
-                "Faked Audio": wandb.Audio(
+                "Fake Audio": wandb.Audio(
                     wav_fake[random_idx].detach().cpu().numpy(), 
                     sample_rate=config.sr, 
                     caption=batch.transcript[random_idx].capitalize()
@@ -193,14 +193,14 @@ def train(
                 "Global Validation Melspectrogram Loss": val_melspec_loss
             })  
         
-        #if val_melspec_loss <= min(history_val_melspec_loss):
-        state = {
-            "generator": generator.state_dict(),
-            "generator_arch": type(generator).__name__,
-            "optimizer_generator": optimizer_generator.state_dict(),
-            "discriminator": discriminator.state_dict(),
-            "discriminator_arch": type(discriminator).__name__,
-            "optimizer_discriminator": optimizer_discriminator.state_dict(),
-            "config": config
-        }
-        torch.save(state, config.path_to_save + "/best.pt")
+        if val_melspec_loss <= min(history_val_melspec_loss):
+            state = {
+                "generator": generator.state_dict(),
+                "generator_arch": type(generator).__name__,
+                "optimizer_generator": optimizer_generator.state_dict(),
+                "discriminator": discriminator.state_dict(),
+                "discriminator_arch": type(discriminator).__name__,
+                "optimizer_discriminator": optimizer_discriminator.state_dict(),
+                "config": config
+            }
+            torch.save(state, config.path_to_save + "/best.pt")
